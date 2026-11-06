@@ -1,4 +1,4 @@
-import { transcribeAudio } from "../utils/elevenStt";
+import { transcribeAudio } from "../utils/geminiStt";
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TranscriptEntry } from '../types';
 import Avatar from './Avatar';

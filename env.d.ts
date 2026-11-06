@@ -2,16 +2,13 @@
 
 declare const process: {
   env: {
-    ELEVEN_STT_API_KEY?: string;
     JUDGE0_API_KEY?: string;
   };
 };
 
 interface ImportMetaEnv {
-  readonly VITE_ELEVEN_STT_API_KEY?: string;
   readonly VITE_JUDGE0_API_KEY?: string;
   readonly VITE_SUPABASE_URL?: string;
   readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;
-  readonly ELEVEN_STT_API_KEY?: string;
   readonly JUDGE0_API_KEY?: string;
 }

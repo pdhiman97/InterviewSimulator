@@ -20,11 +20,9 @@ export default defineConfig(({ mode }) => {
       define: {
         'process': {
           env: {
-            ELEVEN_STT_API_KEY: env.VITE_ELEVEN_STT_API_KEY || env.ELEVEN_STT_API_KEY || '',
             JUDGE0_API_KEY: env.VITE_JUDGE0_API_KEY || env.JUDGE0_API_KEY || ''
           }
         },
-        'process.env.ELEVEN_STT_API_KEY': JSON.stringify(env.VITE_ELEVEN_STT_API_KEY || env.ELEVEN_STT_API_KEY),
         'process.env.JUDGE0_API_KEY': JSON.stringify(env.VITE_JUDGE0_API_KEY || env.JUDGE0_API_KEY)
       },
       resolve: {

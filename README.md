@@ -23,7 +23,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1dnTKfW63aohoJBYFJYziiz
 5. Run the app:
    `npm run dev`
 
-Gemini handles interview chat, report generation, and generated speech. Speech-to-text continues to use ElevenLabs.
+Gemini handles interview chat, report generation, speech-to-text, and generated speech. The Gemini API key stays in the Supabase Edge Function secret; no ElevenLabs key is required.
 Chat and report generation use Gemini Flash-Lite models first, with a Flash fallback. Speech streams audio using Gemini 3.8 Flash-Lite TTS first, with Gemini 3.1 Flash TTS as a fallback. Interview speech starts streaming immediately; transcript text appears shortly after audio generation starts. The interviewer asks about role-relevant experience early, considers transferable skills, and can respectfully end a clearly mismatched practice interview.
 
 The Pages workflow is configured with the Supabase project URL and publishable key. The Gemini API key belongs only in Supabase Edge Function secrets.

@@ -184,6 +184,24 @@ Deno.serve(async request => {
       return new Response(upstream.body, { status: upstream.status, headers });
     }
 
+    if (body.task === 'transcription') {
+      if (!isRecord(body.audio) || typeof body.audio.data !== 'string' || body.audio.data.length === 0 ||
+          body.audio.data.length > 900_000 ||
+          typeof body.audio.mimeType !== 'string' ||
+          !['audio/webm', 'audio/ogg', 'audio/wav', 'audio/mpeg', 'audio/mp4'].includes(body.audio.mimeType)) {
+        return jsonResponse({ error: 'Invalid audio transcription request.' }, 400, cors);
+      }
+      const text = await generateText(apiKey, chatModels, [{
+        parts: [
+          { inlineData: { mimeType: body.audio.mimeType, data: body.audio.data } },
+          { text: 'Transcribe the spoken words exactly. Return only the transcript, with no labels or commentary.' }
+        ]
+      }], {
+        generationConfig: { maxOutputTokens: 2048, temperature: 0 }
+      });
+      return jsonResponse({ text }, 200, cors);
+    }
+
     return jsonResponse({ error: 'Unsupported task.' }, 400, cors);
   } catch (error) {
     console.error('Gemini proxy request failed:', error);
