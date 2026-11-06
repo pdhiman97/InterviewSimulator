@@ -12,7 +12,9 @@ export interface TranscriptEntry {
   codeSnippet?: {
     code: string;
     language: string;
+    stdin?: string;
     output?: string;
+    error?: string;
   };
 }
 

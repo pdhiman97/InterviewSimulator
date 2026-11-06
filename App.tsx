@@ -31,7 +31,7 @@ const App: React.FC = () => {
           return `Candidate: [USER UPLOADED AN IMAGE]${entry.text ? ` with caption: ${entry.text.trim()}` : ''}`;
         }
         if (entry.codeSnippet) {
-          return `Candidate: [CODE SUBMISSION - ${entry.codeSnippet.language.toUpperCase()}]\n\`\`\`${entry.codeSnippet.language}\n${entry.codeSnippet.code}\n\`\`\`${entry.codeSnippet.output ? `\n\nOutput:\n${entry.codeSnippet.output}` : ''}`;
+          return `Candidate: [CODE SUBMISSION - ${entry.codeSnippet.language.toUpperCase()}]\n${entry.codeSnippet.stdin ? `Standard input:\n${entry.codeSnippet.stdin}\n` : ''}\`\`\`${entry.codeSnippet.language}\n${entry.codeSnippet.code}\n\`\`\`${entry.codeSnippet.output ? `\n\nOutput:\n${entry.codeSnippet.output}` : ''}${entry.codeSnippet.error ? `\n\nExecution error:\n${entry.codeSnippet.error}` : ''}`;
         }
         return `Candidate: ${entry.text?.trim() || ''}`;
       }

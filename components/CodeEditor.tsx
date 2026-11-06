@@ -6,8 +6,12 @@ import { toast } from './Toaster';
 interface CodeEditorProps {
   language?: SupportedLanguage;
   initialCode?: string;
+  taskDescription?: string;
+  initialStdin?: string;
   onCodeChange?: (code: string) => void;
-  onCodeSubmit?: (code: string, language: SupportedLanguage, output?: string) => void;
+  onLanguageChange?: (language: SupportedLanguage) => void;
+  onStdinChange?: (stdin: string) => void;
+  onCodeSubmit?: (code: string, language: SupportedLanguage, output?: string, stdin?: string, error?: string) => void;
   readOnly?: boolean;
   height?: string;
 }
@@ -103,7 +107,11 @@ console.log(solution());`,
 const CodeEditor: React.FC<CodeEditorProps> = ({
   language = 'javascript',
   initialCode,
+  taskDescription,
+  initialStdin = '',
   onCodeChange,
+  onLanguageChange,
+  onStdinChange,
   onCodeSubmit,
   readOnly = false,
   height = '400px',
@@ -115,6 +123,8 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [isRunning, setIsRunning] = useState(false);
   const [output, setOutput] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [executionStatus, setExecutionStatus] = useState<string>('');
+  const [stdin, setStdin] = useState(initialStdin);
   const [editorHeight, setEditorHeight] = useState<number>(400);
   const editorRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -132,11 +142,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       if (containerRef.current) {
         const containerHeight = containerRef.current.clientHeight;
         // Subtract toolbar height (~60px) and potential output panel
-        const toolbarHeight = 60;
-        const outputHeight = (output || error) ? 200 : 0;
+        const toolbarHeight = taskDescription ? 230 : 140;
+        const outputHeight = (output || error) ? 160 : 0;
         const calculatedHeight = containerHeight - toolbarHeight - outputHeight;
         if (calculatedHeight > 0) {
-          setEditorHeight(Math.max(300, calculatedHeight));
+          setEditorHeight(Math.max(180, calculatedHeight));
         }
       }
     };
@@ -171,6 +181,17 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     const newCode = value || '';
     setCode(newCode);
     onCodeChange?.(newCode);
+    setOutput('');
+    setError(null);
+    setExecutionStatus('');
+  };
+
+  const handleStdinChange = (value: string) => {
+    setStdin(value);
+    onStdinChange?.(value);
+    setOutput('');
+    setError(null);
+    setExecutionStatus('');
   };
 
   const handleRun = async () => {
@@ -182,9 +203,11 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     setIsRunning(true);
     setOutput('');
     setError(null);
+    setExecutionStatus('');
 
     try {
-      const result = await executeCode(code, selectedLanguage);
+      const result = await executeCode(code, selectedLanguage, stdin);
+      setExecutionStatus(result.status);
       
       if (result.error) {
         setError(result.error);
@@ -195,6 +218,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       }
     } catch (err: any) {
       setError(err.message || 'Failed to execute code');
+      setExecutionStatus('Error');
       setOutput('');
     } finally {
       setIsRunning(false);
@@ -206,7 +230,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
       toast.error('Please write some code first');
       return;
     }
-    onCodeSubmit?.(code, selectedLanguage, output || undefined);
+    onCodeSubmit?.(code, selectedLanguage, output || undefined, stdin, error || undefined);
     toast.success('Code submitted!');
   };
 
@@ -218,7 +242,14 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
           <label className="text-sm font-medium text-gray-700">Language:</label>
           <select
             value={selectedLanguage}
-            onChange={(e) => setSelectedLanguage(e.target.value as SupportedLanguage)}
+            onChange={(e) => {
+              const nextLanguage = e.target.value as SupportedLanguage;
+              setSelectedLanguage(nextLanguage);
+              onLanguageChange?.(nextLanguage);
+              setOutput('');
+              setError(null);
+              setExecutionStatus('');
+            }}
             disabled={readOnly}
             className="px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
           >
@@ -266,6 +297,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
               {onCodeSubmit && (
                 <button
                   onClick={handleSubmit}
+                  disabled={isRunning}
                   className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-md transition-colors"
                 >
                   Submit Code
@@ -276,8 +308,27 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         </div>
       </div>
 
+      {taskDescription && (
+        <div className="flex-shrink-0 border-b border-gray-200 bg-blue-50 px-4 py-3">
+          <h4 className="text-sm font-semibold text-blue-900">Current interviewer prompt</h4>
+          <p className="mt-1 max-h-20 overflow-y-auto whitespace-pre-wrap text-sm text-blue-900">{taskDescription}</p>
+        </div>
+      )}
+      {!readOnly && (
+        <label className="flex flex-shrink-0 items-center gap-3 border-b border-gray-200 px-4 py-2 text-sm text-gray-700">
+          <span className="font-medium">stdin</span>
+          <textarea
+            value={stdin}
+            onChange={event => handleStdinChange(event.target.value)}
+            rows={2}
+            placeholder="Optional input passed to your program"
+            className="min-w-0 flex-1 resize-y rounded border border-gray-300 px-2 py-1 font-mono text-xs focus:border-blue-500 focus:outline-none"
+          />
+        </label>
+      )}
+
       {/* Editor */}
-      <div className="flex-1 overflow-hidden" style={{ minHeight: '300px' }}>
+      <div className="flex-1 overflow-hidden" style={{ minHeight: '180px' }}>
         <Editor
           height={`${editorHeight}px`}
           language={selectedLanguage === 'cpp' ? 'cpp' : selectedLanguage}
@@ -304,7 +355,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         <div className="border-t border-gray-200 bg-gray-50 flex-shrink-0">
           <div className="p-3 border-b border-gray-200">
             <h4 className="text-sm font-semibold text-gray-700">
-              {error ? 'Error' : 'Output'}
+              {error ? 'Error' : `Output${executionStatus ? ` · ${executionStatus}` : ''}`}
             </h4>
           </div>
           <div className="p-4 max-h-48 overflow-y-auto">
@@ -319,4 +370,3 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 };
 
 export default CodeEditor;
-

@@ -18,7 +18,7 @@ Evaluate the candidate's answers against the requirements in this description.`
     : "No job description was provided. Evaluate based on general expectations for the role.";
 
   const analysisPrompt = `
-    As an expert hiring manager and career coach, you must provide a highly discerning, truthful, and insightful analysis of the following interview transcript for a "${jobRole}" position. Your feedback must be specific, constructive, and avoid generic statements. Your tone should be that of a helpful mentor.
+    As an experienced interviewer and career coach, provide a truthful, role-specific review of this practice interview for a "${jobRole}" position. Be specific and constructive; this is coaching feedback, not a real hiring decision.
 
     ${jobDescriptionContext}
 
@@ -27,7 +27,9 @@ Evaluate the candidate's answers against the requirements in this description.`
     ${transcript}
     ---
 
-    A marker like "[USER UPLOADED AN IMAGE]" indicates the candidate provided a visual solution. Your analysis, especially for "Reasoning," must consider their verbal explanation surrounding this upload.
+    A marker like "[USER UPLOADED AN IMAGE]" indicates the candidate shared a visual, but the image itself is not included here. Do not invent visual details; evaluate the candidate's explanation and note when the transcript does not provide enough evidence.
+
+    For product/UX design roles, assess problem framing, user understanding, research, interaction choices, accessibility, iteration, collaboration, and success measures. For software engineering roles, assess problem decomposition, correctness, edge cases, code quality, testing, complexity, and how the candidate used execution feedback. Treat a single Judge0 sample run as limited evidence, not proof of full correctness. Tie feedback to the practical exercise when the transcript includes one.
 
     **Structure your analysis in the JSON format defined by the schema, covering these 5 CORE SKILLS:**
     1.  **Communication:** Assesses clarity of expression, storytelling, active listening, and how structured their answers are.

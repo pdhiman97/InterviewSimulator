@@ -38,12 +38,22 @@ export class GeminiChatService {
       const response = await invokeGemini<{ text: string }>({
         task: 'chat',
         systemInstruction: this.systemInstruction,
-        contents: this.conversationHistory.slice(-12)
+        contents: this.conversationHistory.slice(-24)
       });
 
       const rawResponse = response.text || '';
       const shouldEndInterview = /\[END_INTERVIEW\]\s*$/.test(rawResponse);
       const responseText = rawResponse.replace(/\s*\[END_INTERVIEW\]\s*$/, '').trim();
+
+      if (imageData) {
+        const imageNote = text.trim()
+          ? `${text.trim()}\n[Candidate shared a visual in this turn.]`
+          : '[Candidate shared a visual in this turn.]';
+        this.conversationHistory[this.conversationHistory.length - 1] = {
+          role: 'user',
+          parts: [{ text: imageNote }]
+        };
+      }
       
       this.conversationHistory.push({
         role: 'model',

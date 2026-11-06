@@ -130,12 +130,12 @@ Deno.serve(async request => {
   try {
     if (body.task === 'chat') {
       if (typeof body.systemInstruction !== 'string' || body.systemInstruction.length > 30_000 ||
-          !Array.isArray(body.contents) || body.contents.length === 0 || body.contents.length > 12) {
+          !Array.isArray(body.contents) || body.contents.length === 0 || body.contents.length > 24) {
         return jsonResponse({ error: 'Invalid chat request.' }, 400, cors);
       }
       const text = await generateText(apiKey, chatModels, body.contents, {
         systemInstruction: { parts: [{ text: body.systemInstruction }] },
-        generationConfig: { maxOutputTokens: 96 }
+        generationConfig: { maxOutputTokens: 320 }
       });
       return jsonResponse({ text }, 200, cors);
     }
