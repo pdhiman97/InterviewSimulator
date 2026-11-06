@@ -1,9 +1,10 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { InterviewReport } from '../types';
+import { generateWithGeminiFallback } from '../utils/geminiRetry';
 
 export const getInterviewAnalysis = async (transcript: string, jobRole: string, jobDescription?: string): Promise<InterviewReport> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const model = 'gemini-2.5-flash';
+  const models = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'] as const;
   
   const jobDescriptionContext = jobDescription
     ? `The interview was for a role with this description:
@@ -104,20 +105,22 @@ Evaluate the candidate's answers against the requirements in this description.`
   };
 
   try {
-    const response = await ai.models.generateContent({
-        model: model,
-        contents: analysisPrompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: responseSchema,
-        }
-    });
+    const response = await generateWithGeminiFallback(models, model =>
+      ai.models.generateContent({
+          model,
+          contents: analysisPrompt,
+          config: {
+              responseMimeType: "application/json",
+              responseSchema: responseSchema,
+          }
+      })
+    );
     
     const jsonText = response.text.trim();
     return JSON.parse(jsonText) as InterviewReport;
 
   } catch (error) {
     console.error("Error analyzing interview:", error);
-    throw new Error("Failed to generate interview feedback.");
+    throw new Error(error instanceof Error ? error.message : "Failed to generate interview feedback.");
   }
 };

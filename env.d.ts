@@ -17,4 +17,3 @@ interface ImportMetaEnv {
   readonly GEMINI_API_KEY?: string;
   readonly JUDGE0_API_KEY?: string;
 }
-

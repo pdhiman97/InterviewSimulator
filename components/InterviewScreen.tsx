@@ -29,6 +29,7 @@ const InterviewScreen: React.FC<InterviewScreenProps> = ({ jobRole, jobDescripti
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStage, setProcessingStage] = useState('');
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [textInput, setTextInput] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -38,6 +39,7 @@ const InterviewScreen: React.FC<InterviewScreenProps> = ({ jobRole, jobDescripti
   const [currentCode, setCurrentCode] = useState<string>('');
   const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>('javascript');
   
+  const transcriptRef = useRef<TranscriptEntry[]>([]);
   const outputAudioContextRef = useRef<AudioContext | null>(null);
   const microphoneStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -51,10 +53,16 @@ const InterviewScreen: React.FC<InterviewScreenProps> = ({ jobRole, jobDescripti
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const stalemateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const greetingAudioBufferRef = useRef<ArrayBuffer | null>(null);
   const isRecordingRef = useRef(false);
   const startRecordingRef = useRef<(() => void) | null>(null);
   const greetingPlayedRef = useRef(false);
+  const audioStreamCompleteRef = useRef(false);
+  const endInterviewAfterSpeechRef = useRef(false);
+
+  const appendTranscript = useCallback((entries: TranscriptEntry[]) => {
+    transcriptRef.current = [...transcriptRef.current, ...entries];
+    setTranscript(transcriptRef.current);
+  }, []);
 
   const stopAudioPlayback = useCallback(() => {
     if (outputAudioContextRef.current) {
@@ -102,8 +110,8 @@ const InterviewScreen: React.FC<InterviewScreenProps> = ({ jobRole, jobDescripti
   
   const handleEndInterview = useCallback(async () => {
     await cleanup();
-    onFinish(transcript);
-  }, [cleanup, onFinish, transcript]);
+    onFinish(transcriptRef.current);
+  }, [cleanup, onFinish]);
 
   const handleEndInterviewRef = useRef(handleEndInterview);
   useEffect(() => {
@@ -138,14 +146,28 @@ CRITICAL CONTEXT - YOU ALREADY KNOW:
 
 Your primary goal is to conduct a fluid, voice-to-voice conversation following a structured interview flow. Respond naturally to the user's speech and keep the dialogue flowing.
 
+REALISTIC INTERVIEWING AND ROLE-FIT DECISIONS
+- Open by asking about experience or skills most relevant to "${jobRole}", rather than requesting a generic life story.
+- Listen for concrete evidence: the candidate's own contribution, relevant skills, outcomes, and lessons learned. Ask one focused follow-up when useful.
+- Assess role fit against job requirements and demonstrated capabilities, not identity or personal background. Never infer ability from age, gender, caste, religion, disability, accent, or other protected or personal traits.
+- Treat career changers, entry-level candidates, and adjacent experience fairly. A different job title or industry alone is not a mismatch; look for transferable skills and motivation.
+- If relevance is unclear, ask one concise clarifying question about direct or transferable experience before deciding.
+- End early only when the candidate clearly confirms they have no relevant or transferable experience for this role, or explicitly says they are seeking different work. Briefly explain the role-related reason, thank them without judging them, then append the exact token [END_INTERVIEW] to your response. Do not speak the token.
+- For an early close, do not ask another question. For all other replies, never include [END_INTERVIEW].
+- This is a practice interview, not a real hiring decision. Do not claim to make a hiring or employment decision.
+- Create psychological safety: be curious, patient, and respectful; do not treat nervousness, pauses, or one imperfect answer as lack of ability.
+- Probe ownership and impact naturally: clarify what the candidate personally did, why they chose it, what changed, and what they learned. Challenge inconsistencies gently, without sounding accusatory.
+- Calibrate question difficulty to the role and seniority. Use a short scenario when experience is limited, and a deeper trade-off or leadership probe for experienced candidates.
+
 General Interview Behaviour (Applies to All Roles)
-	•	KEEP QUESTIONS SHORT AND NATURAL - aim for 1-2 sentences maximum, like a real conversation
+	•	KEEP RESPONSES VERY SHORT for fast voice: usually one acknowledgement and one question, no more than 18 spoken words
 	•	Sound like a friendly human interviewer, not a robot reading a script
 	•	Use casual, conversational language - say "Tell me about..." instead of "Could you please elaborate on..."
-	•	Acknowledge what the candidate says briefly, then ask ONE focused question
+	•	Acknowledge one specific detail from the candidate's answer, then ask ONE focused question
 	•	If the candidate pauses, give a gentle nudge like "Take your time" or "What do you think?"
 	•	If answers are too long, politely interrupt with "That's great, let me ask you this..."
 	•	If answers are too short, ask a simple, direct follow-up
+	•	If a claim is vague, ask for one concrete example or outcome rather than assuming
 	•	AVOID long, multi-part questions - ask one thing at a time
 	•	AVOID formal language - be warm and approachable
 	•	AVOID repeating what they said in detail - just acknowledge briefly
@@ -155,11 +177,10 @@ General Interview Behaviour (Applies to All Roles)
 
 STRUCTURED INTERVIEW FLOW - FOLLOW THIS EXACTLY IN ORDER:
 
-PHASE 1: WARM-UP & BACKGROUND (2-3 questions)
-	•	Greet them warmly
-	•	Ask for a brief introduction about themselves and their background
-	•	Ask about their relevant experience for the "${jobRole}" role
-	•	Paraphrase what they said to show you're listening
+PHASE 1: WARM-UP & ROLE FIT (2-3 questions)
+	•	Greet them warmly and begin with their most relevant experience or transferable skills for "${jobRole}"
+	•	Ask a clarifying role-fit question only when their first answer leaves genuine uncertainty
+	•	If they demonstrate relevant potential, acknowledge their specific evidence and move into the interview
 	•	DO NOT ask what role they're applying for - you already know it's "${jobRole}"
 	•	DO NOT ask if they can hear you clearly - just start the interview naturally
 
@@ -289,55 +310,64 @@ QUESTION STYLE EXAMPLES:
 Remember: Sound like a friendly colleague asking questions, not a formal interviewer reading from a script.`;
   }, [jobRole, jobDescription]);
 
-  const playAudioFromBuffer = useCallback(async (audioBuffer: ArrayBuffer) => {
-    if (!outputAudioContextRef.current) return;
+  const finishAudioStream = useCallback(() => {
+    if (!audioStreamCompleteRef.current || audioSourcesRef.current.size > 0) return;
 
-    try {
-      const context = outputAudioContextRef.current;
-      const analyser = analyserNodeRef.current!;
-      
-      // Stop recording when AI starts speaking
-      if (isRecordingRef.current && mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-        mediaRecorderRef.current.stop();
-        isRecordingRef.current = false;
-        setIsListening(false);
-      }
-      
-      setIsSpeaking(true);
-      // Eleven Labs returns MP3, which AudioContext.decodeAudioData can handle directly
-      const buffer = await context.decodeAudioData(audioBuffer.slice(0));
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.connect(analyser);
-      
-      nextStartTimeRef.current = Math.max(nextStartTimeRef.current, context.currentTime);
-      source.start(nextStartTimeRef.current);
-      nextStartTimeRef.current += buffer.duration;
-      audioSourcesRef.current.add(source);
-      
-      source.onended = () => {
-        audioSourcesRef.current.delete(source);
-        if (audioSourcesRef.current.size === 0) {
-          setIsSpeaking(false);
-          startInactivityTimer();
-          // Restart recording after AI finishes speaking (immediate restart)
-          setTimeout(() => {
-            if (sessionState === 'active' && !isProcessing && !isRecordingRef.current && startRecordingRef.current) {
-              startRecordingRef.current();
-            }
-          }, 100);
-        }
-      };
-    } catch (e) {
-      console.error("Error playing audio:", e);
-      setIsSpeaking(false);
-      startInactivityTimer();
+    if (endInterviewAfterSpeechRef.current) {
+      endInterviewAfterSpeechRef.current = false;
+      handleEndInterviewRef.current();
+      return;
     }
+
+    setIsSpeaking(false);
+    startInactivityTimer();
+    setTimeout(() => {
+      if (sessionState === 'active' && !isProcessing && !isRecordingRef.current && startRecordingRef.current) {
+        startRecordingRef.current();
+      }
+    }, 100);
   }, [startInactivityTimer, sessionState, isProcessing]);
+
+  const playAudioChunk = useCallback((audioChunk: ArrayBuffer) => {
+    const context = outputAudioContextRef.current;
+    const analyser = analyserNodeRef.current;
+    if (!context || !analyser || audioChunk.byteLength < 2) return;
+    if (audioChunk.byteLength % 2 !== 0) {
+      throw new Error('Gemini TTS returned an incomplete PCM audio sample.');
+    }
+
+    if (isRecordingRef.current && mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      isRecordingRef.current = false;
+      setIsListening(false);
+    }
+
+    const sampleCount = audioChunk.byteLength / 2;
+    const audioBuffer = context.createBuffer(1, sampleCount, 24000);
+    const channelData = audioBuffer.getChannelData(0);
+    const view = new DataView(audioChunk);
+    for (let i = 0; i < sampleCount; i++) {
+      channelData[i] = view.getInt16(i * 2, true) / 32768;
+    }
+
+    setIsSpeaking(true);
+    const source = context.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(analyser);
+    nextStartTimeRef.current = Math.max(nextStartTimeRef.current, context.currentTime + 0.1);
+    source.start(nextStartTimeRef.current);
+    nextStartTimeRef.current += audioBuffer.duration;
+    audioSourcesRef.current.add(source);
+    source.onended = () => {
+      audioSourcesRef.current.delete(source);
+      finishAudioStream();
+    };
+  }, [finishAudioStream]);
 
   const processUserMessage = useCallback(async (text: string, imageData?: { data: string; mimeType: string }) => {
     if (!chatServiceRef.current) return;
 
+    let isPlannedInterviewEnd = false;
     try {
       setIsProcessing(true);
       clearTimers();
@@ -348,36 +378,52 @@ Remember: Sound like a friendly colleague asking questions, not a formal intervi
       if (imageData) {
         userEntry.imageUrl = `data:${imageData.mimeType};base64,${imageData.data}`;
       }
-      setTranscript(prev => [...prev, userEntry]);
+      appendTranscript([userEntry]);
 
       // Get AI response
-      const responseText = await chatServiceRef.current.sendMessage(text, imageData);
+      setProcessingStage('Thinking of a response...');
+      const { text: responseText, shouldEndInterview } = await chatServiceRef.current.sendMessage(text, imageData);
       
-      // Generate audio in parallel with showing text (don't wait for audio to show text)
-      // But start audio generation immediately
-      const audioPromise = chatServiceRef.current.generateAudio(responseText);
-      
-      // Add AI response to transcript immediately (text shows right away)
-      setTranscript(prev => [...prev, { speaker: 'ai', text: responseText }]);
+      setProcessingStage('Preparing voice...');
+      audioStreamCompleteRef.current = false;
+      nextStartTimeRef.current = 0;
+      isPlannedInterviewEnd = shouldEndInterview;
+      endInterviewAfterSpeechRef.current = shouldEndInterview;
+      let audioError: unknown;
+      const audioPromise = chatServiceRef.current.generateAudio(responseText, playAudioChunk)
+        .catch(error => {
+          audioError = error;
+        });
 
-      // Wait for audio and play it
-      const audioBuffer = await audioPromise;
-      await playAudioFromBuffer(audioBuffer);
+      await new Promise(resolve => setTimeout(resolve, 350));
+      appendTranscript([{ speaker: 'ai', text: responseText }]);
+
+      try {
+        await audioPromise;
+        if (audioError) throw audioError;
+      } finally {
+        audioStreamCompleteRef.current = true;
+        finishAudioStream();
+      }
 
     } catch (error: any) {
       console.error('Error processing message:', error);
       toast.error(error.message || "Failed to process your message. Please try again.");
       setIsProcessing(false);
+      setProcessingStage('');
       // Restart recording after error (faster restart)
-      setTimeout(() => {
-        if (sessionState === 'active' && !isProcessing && startRecordingRef.current) {
-          startRecordingRef.current();
-        }
-      }, 300);
+      if (!isPlannedInterviewEnd) {
+        setTimeout(() => {
+          if (sessionState === 'active' && !isProcessing && startRecordingRef.current) {
+            startRecordingRef.current();
+          }
+        }, 300);
+      }
     } finally {
       setIsProcessing(false);
+      setProcessingStage('');
     }
-  }, [clearTimers, playAudioFromBuffer, sessionState]);
+  }, [appendTranscript, clearTimers, finishAudioStream, playAudioChunk, sessionState]);
 
   const startSession = useCallback(async () => {
     setSessionState('starting');
@@ -402,14 +448,13 @@ Remember: Sound like a friendly colleague asking questions, not a formal intervi
       }
       chatServiceRef.current = new GeminiChatService(apiKey, getSystemInstruction());
 
-      // Generate greeting using Eleven Labs TTS for faster audio
-      const greetingText = `Hello! I'm Alex, and we're here today to interview for the ${jobRole} position. Could you tell me a little about yourself and your background?`;
+      // Generate the greeting with Gemini Flash-Lite TTS
+      const greetingText = `Hi, I'm Alex. What experience or skills do you have that are most relevant to the ${jobRole} role?`;
       
-      const { generateSpeech } = await import('../utils/elevenTts');
-      greetingAudioBufferRef.current = await generateSpeech(greetingText);
       greetingPlayedRef.current = false; // Reset flag for new session
       
-      setTranscript([{ speaker: 'ai', text: greetingText }]);
+      transcriptRef.current = [{ speaker: 'ai', text: greetingText }];
+      setTranscript(transcriptRef.current);
       setSessionState('active');
     } catch (error: any) {
       console.error('Initialization failed:', error);
@@ -421,6 +466,7 @@ Remember: Sound like a friendly colleague asking questions, not a formal intervi
   const handleStartSessionClick = useCallback(async () => {
     if (sessionState === 'error') {
       await cleanup();
+      transcriptRef.current = [];
       setTranscript([]);
     }
     startSession();
@@ -469,13 +515,13 @@ Remember: Sound like a friendly colleague asking questions, not a formal intervi
         output,
       },
     };
-    setTranscript(prev => [...prev, codeEntry]);
+    appendTranscript([codeEntry]);
     setShowCodeEditor(false);
     
     // Send code to AI for analysis
     const codeMessage = `I've written the following ${language} code:\n\n\`\`\`${language}\n${code}\n\`\`\`${output ? `\n\nOutput:\n${output}` : ''}\n\nPlease review my solution and provide feedback.`;
     processUserMessage(codeMessage);
-  }, [processUserMessage]);
+  }, [appendTranscript, processUserMessage]);
 
   const detectSilence = useCallback(() => {
     if (!inputAnalyserRef.current || !isRecordingRef.current || isProcessing) return;
@@ -558,11 +604,13 @@ Remember: Sound like a friendly colleague asking questions, not a formal intervi
 
         try {
           setIsProcessing(true);
+          setProcessingStage('Transcribing your answer...');
           const audioBlob = new Blob(recordedChunksRef.current, { type: 'audio/webm;codecs=opus' });
           
           // Validate minimum recording length (reduced threshold for faster processing)
           if (audioBlob.size < 500) {
             setIsProcessing(false);
+            setProcessingStage('');
             recordedChunksRef.current = [];
             // Restart recording (immediate restart)
             setTimeout(() => startContinuousRecording(), 100);
@@ -576,6 +624,7 @@ Remember: Sound like a friendly colleague asking questions, not a formal intervi
             await processUserMessage(transcription);
           } else {
             setIsProcessing(false);
+            setProcessingStage('');
             recordedChunksRef.current = [];
             // Restart recording (immediate restart)
             setTimeout(() => startContinuousRecording(), 100);
@@ -584,6 +633,7 @@ Remember: Sound like a friendly colleague asking questions, not a formal intervi
           console.error('Error transcribing audio:', error);
           toast.error(error.message || "Failed to transcribe audio. Please try again.");
           setIsProcessing(false);
+          setProcessingStage('');
           recordedChunksRef.current = [];
           // Restart recording after error (faster restart)
           setTimeout(() => startContinuousRecording(), 300);
@@ -609,19 +659,22 @@ Remember: Sound like a friendly colleague asking questions, not a formal intervi
   }, [startContinuousRecording]);
 
   useEffect(() => {
-    // Only play greeting once when session becomes active
-    if (sessionState === 'active' && greetingAudioBufferRef.current && outputAudioContextRef.current && !greetingPlayedRef.current) {
+    if (sessionState === 'active' && chatServiceRef.current && !greetingPlayedRef.current) {
       greetingPlayedRef.current = true;
-      playAudioFromBuffer(greetingAudioBufferRef.current).then(() => {
-        // Start continuous recording after greeting finishes (immediate start)
-        setTimeout(() => {
-          if (startRecordingRef.current) {
-            startRecordingRef.current();
-          }
-        }, 100);
+      audioStreamCompleteRef.current = false;
+      nextStartTimeRef.current = 0;
+      chatServiceRef.current.generateAudio(
+        `Hi, I'm Alex. What experience or skills do you have that are most relevant to the ${jobRole} role?`,
+        playAudioChunk
+      ).catch(error => {
+        console.error('Error generating interview greeting:', error);
+        toast.error(error.message || 'Could not generate the interview greeting.');
+      }).finally(() => {
+        audioStreamCompleteRef.current = true;
+        finishAudioStream();
       });
     }
-  }, [sessionState, playAudioFromBuffer]);
+  }, [sessionState, jobRole, playAudioChunk, finishAudioStream]);
 
   useEffect(() => {
     return () => { cleanup(); };
@@ -675,7 +728,7 @@ Remember: Sound like a friendly colleague asking questions, not a formal intervi
             <Avatar isSpeaking={isSpeaking} analyserNode={analyserNodeRef.current} />
             <p className="mt-6 text-xl font-medium text-gray-900">Alex, The Interviewer</p>
             <div className={`mt-2 text-sm font-medium transition-colors ${isSpeaking ? 'text-blue-600' : isListening ? 'text-green-600' : isProcessing ? 'text-yellow-600' : 'text-gray-500'}`}>
-              {isSpeaking ? 'Speaking...' : isListening ? 'Listening...' : isProcessing ? 'Processing...' : 'Ready'}
+              {isSpeaking ? 'Speaking...' : isListening ? 'Listening...' : isProcessing ? processingStage || 'Processing...' : 'Ready'}
             </div>
           </div>
           <div className="flex-1 lg:w-2/3 bg-white rounded-lg border border-gray-200 flex flex-col min-h-0">
@@ -721,7 +774,7 @@ Remember: Sound like a friendly colleague asking questions, not a formal intervi
                         </span>
                     ) : isProcessing ? (
                         <span className="text-gray-500 text-sm animate-fade-in">
-                          Processing your message...
+                          {processingStage || 'Processing your message...'}
                         </span>
                     ) : isListening ? (
                         <span className="text-green-600 text-sm animate-fade-in flex items-center gap-2">
