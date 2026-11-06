@@ -1,11 +1,14 @@
-import { GoogleGenAI, Type } from '@google/genai';
 import { InterviewReport } from '../types';
-import { generateWithGeminiFallback } from '../utils/geminiRetry';
+import { invokeGemini } from './supabaseClient';
+
+const Type = {
+  OBJECT: 'OBJECT',
+  STRING: 'STRING',
+  NUMBER: 'NUMBER',
+  ARRAY: 'ARRAY'
+} as const;
 
 export const getInterviewAnalysis = async (transcript: string, jobRole: string, jobDescription?: string): Promise<InterviewReport> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const models = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'] as const;
-  
   const jobDescriptionContext = jobDescription
     ? `The interview was for a role with this description:
 ---
@@ -105,16 +108,11 @@ Evaluate the candidate's answers against the requirements in this description.`
   };
 
   try {
-    const response = await generateWithGeminiFallback(models, model =>
-      ai.models.generateContent({
-          model,
-          contents: analysisPrompt,
-          config: {
-              responseMimeType: "application/json",
-              responseSchema: responseSchema,
-          }
-      })
-    );
+    const response = await invokeGemini<{ text: string }>({
+      task: 'analysis',
+      prompt: analysisPrompt,
+      responseSchema
+    });
     
     const jsonText = response.text.trim();
     return JSON.parse(jsonText) as InterviewReport;

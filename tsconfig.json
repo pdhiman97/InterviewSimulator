@@ -25,5 +25,8 @@
     "noEmit": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true
-  }
+  },
+  "exclude": [
+    "supabase/functions"
+  ]
 }

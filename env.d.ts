@@ -2,8 +2,6 @@
 
 declare const process: {
   env: {
-    API_KEY?: string;
-    GEMINI_API_KEY?: string;
     ELEVEN_STT_API_KEY?: string;
     JUDGE0_API_KEY?: string;
   };
@@ -11,9 +9,9 @@ declare const process: {
 
 interface ImportMetaEnv {
   readonly VITE_ELEVEN_STT_API_KEY?: string;
-  readonly VITE_GEMINI_API_KEY?: string;
   readonly VITE_JUDGE0_API_KEY?: string;
+  readonly VITE_SUPABASE_URL?: string;
+  readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   readonly ELEVEN_STT_API_KEY?: string;
-  readonly GEMINI_API_KEY?: string;
   readonly JUDGE0_API_KEY?: string;
 }

@@ -1,5 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
-import { generateWithGeminiFallback } from '../utils/geminiRetry';
+import { invokeGemini } from './supabaseClient';
 import { generateSpeechStream } from '../utils/geminiTts';
 
 export interface ChatMessage {
@@ -13,12 +12,10 @@ export interface InterviewReply {
 }
 
 export class GeminiChatService {
-  private ai: GoogleGenAI;
   private conversationHistory: ChatMessage[] = [];
   private systemInstruction: string;
 
-  constructor(apiKey: string, systemInstruction: string) {
-    this.ai = new GoogleGenAI({ apiKey });
+  constructor(systemInstruction: string) {
     this.systemInstruction = systemInstruction;
   }
 
@@ -38,18 +35,11 @@ export class GeminiChatService {
     });
 
     try {
-      const response = await generateWithGeminiFallback(
-        ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'],
-        model => this.ai.models.generateContent({
-          model,
-          // Keep requests small as the interview history grows.
-          contents: this.conversationHistory.slice(-12),
-          config: {
-            systemInstruction: this.systemInstruction,
-            maxOutputTokens: 96
-          }
-        })
-      );
+      const response = await invokeGemini<{ text: string }>({
+        task: 'chat',
+        systemInstruction: this.systemInstruction,
+        contents: this.conversationHistory.slice(-12)
+      });
 
       const rawResponse = response.text || '';
       const shouldEndInterview = /\[END_INTERVIEW\]\s*$/.test(rawResponse);

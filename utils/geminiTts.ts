@@ -1,63 +1,4 @@
-import { generateWithGeminiFallback } from './geminiRetry';
-
-const TTS_MODELS = ['gemini-3.8-flash-lite-tts', 'gemini-3.1-flash-tts-preview'] as const;
-
-function getApiKey(): string {
-  const apiKey = (
-    import.meta.env.VITE_GEMINI_API_KEY ||
-    process?.env?.GEMINI_API_KEY ||
-    process?.env?.API_KEY
-  )?.trim();
-
-  if (!apiKey) {
-    throw new Error('Gemini API key is not configured. Please set VITE_GEMINI_API_KEY in .env.local and restart the dev server.');
-  }
-
-  return apiKey;
-}
-
-function createRequest(text: string, model: string, stream: boolean) {
-  return {
-    model,
-    input: [{
-      type: 'user_input',
-      content: [{
-        type: 'text',
-        text
-      }]
-    }],
-    response_format: { type: 'audio' },
-    generation_config: {
-      speech_config: [{ voice: 'Kore' }]
-    },
-    ...(stream ? { stream: true } : {})
-  };
-}
-
-async function postSpeechRequest(apiKey: string, model: string, body: object): Promise<Response> {
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey
-    },
-    body: JSON.stringify(body)
-  });
-
-  if (!response.ok) {
-    const responseText = await response.text();
-    let message = responseText || response.statusText;
-    try {
-      const result: { error?: { message?: string } } = JSON.parse(responseText);
-      message = result.error?.message || message;
-    } catch {
-      // Keep the response text when the API does not return JSON.
-    }
-    throw new Error(`Gemini TTS API error: ${response.status} ${message}`);
-  }
-
-  return response;
-}
+import { getGeminiProxyRequest } from '../services/supabaseClient';
 
 function decodeBase64Audio(audioData: string): ArrayBuffer {
   const binaryAudio = atob(audioData);
@@ -69,66 +10,52 @@ function decodeBase64Audio(audioData: string): ArrayBuffer {
 }
 
 export async function generateSpeech(text: string): Promise<ArrayBuffer> {
-  const apiKey = getApiKey();
-  return generateWithGeminiFallback(
-    TTS_MODELS,
-    async model => {
-      const response = await postSpeechRequest(apiKey, model, createRequest(text, model, false));
+  const request = getGeminiProxyRequest({ task: 'speech', text, stream: false });
+  const response = await fetch(request.url, {
+    method: 'POST',
+    headers: request.headers,
+    body: request.body
+  });
+  const responseText = await response.text();
+  if (!response.ok) {
+    throw new Error(`Speech generation failed: ${responseText || response.statusText}`);
+  }
 
-      const responseText = await response.text();
-      let result: {
-        output_audio?: { data?: string };
-        steps?: Array<{
-          content?: Array<{
-            type?: string;
-            data?: string;
-          }>;
-        }>;
-        error?: { message?: string };
-      };
-      try {
-        result = JSON.parse(responseText);
-      } catch {
-        throw new Error(`Gemini TTS returned an invalid response: ${responseText || response.statusText}`);
-      }
+  let result: {
+    output_audio?: { data?: string };
+    steps?: Array<{ content?: Array<{ type?: string; data?: string }> }>;
+  };
+  try {
+    result = JSON.parse(responseText);
+  } catch {
+    throw new Error(`Gemini TTS returned an invalid response: ${responseText || response.statusText}`);
+  }
 
-      if (!response.ok) {
-        throw new Error(`Gemini TTS API error: ${response.status} ${result.error?.message || response.statusText}`);
-      }
-
-      let audioData = result.output_audio?.data;
-      for (const step of result.steps || []) {
-        for (const content of step.content || []) {
-          if (content.type === 'audio' && content.data) {
-            audioData = content.data;
-          }
-        }
-      }
-      if (!audioData) {
-        throw new Error('Gemini TTS returned no audio data in its response steps.');
-      }
-
-      return decodeBase64Audio(audioData);
+  let audioData = result.output_audio?.data;
+  for (const step of result.steps || []) {
+    for (const content of step.content || []) {
+      if (content.type === 'audio' && content.data) audioData = content.data;
     }
-  );
+  }
+  if (!audioData) {
+    throw new Error('Gemini TTS returned no audio data in its response steps.');
+  }
+  return decodeBase64Audio(audioData);
 }
 
 export async function generateSpeechStream(
   text: string,
   onAudioChunk: (chunk: ArrayBuffer) => void
 ): Promise<void> {
-  const apiKey = getApiKey();
-  const response = await generateWithGeminiFallback(
-    TTS_MODELS,
-    async model => {
-      const result = await postSpeechRequest(apiKey, model, createRequest(text, model, true));
-      if (!result.body) {
-        throw new Error('Gemini TTS returned no streaming response body.');
-      }
-      return result;
-    }
-  );
-
+  const request = getGeminiProxyRequest({ task: 'speech', text, stream: true });
+  const response = await fetch(request.url, {
+    method: 'POST',
+    headers: request.headers,
+    body: request.body
+  });
+  if (!response.ok) {
+    throw new Error(`Speech generation failed: ${await response.text()}`);
+  }
   if (!response.body) {
     throw new Error('Gemini TTS returned no streaming response body.');
   }

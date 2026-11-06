@@ -442,11 +442,7 @@ Remember: Sound like a friendly colleague asking questions, not a formal intervi
       analyser.connect(context.destination);
 
       // Initialize chat service
-      const apiKey = (process?.env?.GEMINI_API_KEY || process?.env?.API_KEY) as string;
-      if (!apiKey) {
-        throw new Error('Gemini API key is not configured');
-      }
-      chatServiceRef.current = new GeminiChatService(apiKey, getSystemInstruction());
+      chatServiceRef.current = new GeminiChatService(getSystemInstruction());
 
       // Generate the greeting with Gemini Flash-Lite TTS
       const greetingText = `Hi, I'm Alex. What experience or skills do you have that are most relevant to the ${jobRole} role?`;

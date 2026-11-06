@@ -15,9 +15,16 @@ View your app in AI Studio: https://ai.studio/apps/drive/1dnTKfW63aohoJBYFJYziiz
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `.env.local`.
+3. In Supabase, add the replacement Gemini API key as the `GEMINI_API_KEY` Edge Function secret.
+4. Link the Supabase project and deploy the Edge Function:
+   `supabase link --project-ref ipptzlmogkprcgqiqyuj`
+   `supabase functions deploy gemini-proxy`
+5. Run the app:
    `npm run dev`
 
 Gemini handles interview chat, report generation, and generated speech. Speech-to-text continues to use ElevenLabs.
 Chat and report generation use Gemini Flash-Lite models first, with a Flash fallback. Speech streams audio using Gemini 3.8 Flash-Lite TTS first, with Gemini 3.1 Flash TTS as a fallback. Interview speech starts streaming immediately; transcript text appears shortly after audio generation starts. The interviewer asks about role-relevant experience early, considers transferable skills, and can respectfully end a clearly mismatched practice interview.
+
+The Pages workflow is configured with the Supabase project URL and publishable key. The Gemini API key belongs only in Supabase Edge Function secrets.
+The Gemini proxy is public because the app has no user sign-in; its CORS origin list is not authentication or rate limiting. Add authentication and usage limits before relying on it for a public launch.
