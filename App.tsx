@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { InterviewState, InterviewReport, TranscriptEntry } from './types';
+import { ExperienceLevel, InterviewState, InterviewReport, TranscriptEntry } from './types';
 import SetupScreen from './components/SetupScreen';
 import InterviewScreen from './components/InterviewScreen';
 import ReportScreen from './components/ReportScreen';
@@ -9,13 +9,15 @@ import { getInterviewAnalysis } from './services/geminiService';
 const App: React.FC = () => {
   const [interviewState, setInterviewState] = useState<InterviewState>(InterviewState.STARTING);
   const [jobRole, setJobRole] = useState<string>('');
+  const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel>('fresher');
   const [jobDescription, setJobDescription] = useState<string>('');
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [report, setReport] = useState<InterviewReport | null>(null);
 
-  const handleStart = (role: string, description?: string) => {
+  const handleStart = (role: string, level: ExperienceLevel, description?: string) => {
     if (role.trim()) {
       setJobRole(role);
+      setExperienceLevel(level);
       setJobDescription(description || '');
       setInterviewState(InterviewState.IN_PROGRESS);
     }
@@ -39,7 +41,7 @@ const App: React.FC = () => {
     }).join('\n');
     
     try {
-        const generatedReport = await getInterviewAnalysis(finalTranscriptText, jobRole, jobDescription);
+        const generatedReport = await getInterviewAnalysis(finalTranscriptText, jobRole, experienceLevel, jobDescription);
         setReport(generatedReport);
         setInterviewState(InterviewState.FINISHED);
     } catch (error) {
@@ -62,7 +64,7 @@ const App: React.FC = () => {
       case InterviewState.STARTING:
         return <SetupScreen onStart={handleStart} />;
       case InterviewState.IN_PROGRESS:
-        return <InterviewScreen jobRole={jobRole} jobDescription={jobDescription} onFinish={handleFinish} />;
+        return <InterviewScreen jobRole={jobRole} experienceLevel={experienceLevel} jobDescription={jobDescription} onFinish={handleFinish} />;
       case InterviewState.ANALYZING:
          return (
           <div className="flex flex-col items-center justify-center h-screen bg-white text-gray-900">
@@ -72,7 +74,7 @@ const App: React.FC = () => {
           </div>
         );
       case InterviewState.FINISHED:
-        return report && <ReportScreen report={report} onRestart={handleRestart} jobRole={jobRole} jobDescription={jobDescription} transcript={transcript} />;
+        return report && <ReportScreen report={report} onRestart={handleRestart} jobRole={jobRole} experienceLevel={experienceLevel} jobDescription={jobDescription} transcript={transcript} />;
       default:
         return <SetupScreen onStart={handleStart} />;
     }

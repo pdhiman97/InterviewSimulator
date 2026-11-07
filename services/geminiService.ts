@@ -1,4 +1,4 @@
-import { InterviewReport } from '../types';
+import { EXPERIENCE_LEVELS, ExperienceLevel, InterviewReport } from '../types';
 import { invokeGemini } from './supabaseClient';
 
 const Type = {
@@ -8,7 +8,8 @@ const Type = {
   ARRAY: 'ARRAY'
 } as const;
 
-export const getInterviewAnalysis = async (transcript: string, jobRole: string, jobDescription?: string): Promise<InterviewReport> => {
+export const getInterviewAnalysis = async (transcript: string, jobRole: string, experienceLevel: ExperienceLevel, jobDescription?: string): Promise<InterviewReport> => {
+  const level = EXPERIENCE_LEVELS[experienceLevel];
   const jobDescriptionContext = jobDescription
     ? `The interview was for a role with this description:
 ---
@@ -18,7 +19,9 @@ Evaluate the candidate's answers against the requirements in this description.`
     : "No job description was provided. Evaluate based on general expectations for the role.";
 
   const analysisPrompt = `
-    As an experienced interviewer and career coach, provide a truthful, role-specific review of this practice interview for a "${jobRole}" position. Be specific and constructive; this is coaching feedback, not a real hiring decision.
+    As an experienced interviewer and career coach, provide a truthful, role-specific review of this practice interview for a "${jobRole}" position at the ${level.label} level (${level.range}). Be specific and constructive; this is coaching feedback, not a real hiring decision.
+
+    Calibrate expectations to this experience level. For freshers/students, focus on fundamentals, academic or internship projects, personal contribution, clarity, and learning potential; do not penalize the lack of professional experience. For early-career candidates, focus on practical ownership and learning from real work. For mid-level candidates, assess judgment, trade-offs, autonomy, and collaboration across teams. For senior/lead candidates, focus on impact, strategy, leadership, and influence; do not expect basic fundamentals. Do not compare candidates across levels.
 
     ${jobDescriptionContext}
 

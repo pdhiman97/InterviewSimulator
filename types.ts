@@ -5,6 +5,15 @@ export enum InterviewState {
   FINISHED = 'FINISHED',
 }
 
+export const EXPERIENCE_LEVELS = {
+  fresher: { label: 'Fresher / Student', range: '0-1 year' },
+  earlyCareer: { label: 'Early career', range: '1-3 years' },
+  midLevel: { label: 'Mid-level', range: '3-6 years' },
+  seniorLead: { label: 'Senior / Lead', range: '6+ years' },
+} as const;
+
+export type ExperienceLevel = keyof typeof EXPERIENCE_LEVELS;
+
 export interface TranscriptEntry {
   speaker: 'user' | 'ai';
   text?: string;

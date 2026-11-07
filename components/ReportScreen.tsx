@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { InterviewReport, FeedbackSection, TranscriptEntry, FeedbackPoint } from '../types';
+import { EXPERIENCE_LEVELS, ExperienceLevel, InterviewReport, FeedbackSection, TranscriptEntry, FeedbackPoint } from '../types';
 import { toast } from './Toaster';
 
 interface ReportScreenProps {
   report: InterviewReport;
   onRestart: () => void;
   jobRole: string;
+  experienceLevel: ExperienceLevel;
   jobDescription?: string;
   transcript: TranscriptEntry[];
 }
@@ -281,13 +282,15 @@ const ChatFeedbackTab: React.FC<{ transcript: TranscriptEntry[], report: Intervi
   );
 };
 
-const ReportScreen: React.FC<ReportScreenProps> = ({ report, onRestart, jobRole, transcript }) => {
+const ReportScreen: React.FC<ReportScreenProps> = ({ report, onRestart, jobRole, experienceLevel, transcript }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const selectedLevel = EXPERIENCE_LEVELS[experienceLevel];
   
   const handleDownloadSummary = () => {
     const summaryParts = [
       `# Interview Report for ${jobRole}`,
+      `Experience level: ${selectedLevel.label} (${selectedLevel.range})`,
       `Date: ${today}\n`,
       `## Overall Performance`,
       `- Score: ${report.overallScore}/10`,
@@ -321,7 +324,7 @@ const ReportScreen: React.FC<ReportScreenProps> = ({ report, onRestart, jobRole,
           <div className="bg-white rounded-xl p-6 border border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-center sm:text-left">
               <h1 className="text-2xl font-bold text-gray-900">Great job completing your interview!</h1>
-              <p className="text-gray-600 mt-1">For the <span className="font-semibold text-blue-600">{jobRole}</span> role on {today}</p>
+              <p className="text-gray-600 mt-1">For the <span className="font-semibold text-blue-600">{jobRole}</span> role at the {selectedLevel.label} level on {today}</p>
             </div>
             <div className="flex gap-2">
               <button onClick={onRestart} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm transition-all">Try Again</button>

@@ -1,6 +1,6 @@
 import { transcribeAudio } from "../utils/geminiStt";
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { TranscriptEntry } from '../types';
+import { EXPERIENCE_LEVELS, ExperienceLevel, TranscriptEntry } from '../types';
 import Avatar from './Avatar';
 import { toast } from './Toaster';
 import { GeminiChatService } from '../services/geminiChatService';
@@ -9,6 +9,7 @@ import { SupportedLanguage } from '../services/judge0Service';
 
 interface InterviewScreenProps {
   jobRole: string;
+  experienceLevel: ExperienceLevel;
   jobDescription?: string;
   onFinish: (transcript: TranscriptEntry[]) => void;
 }
@@ -46,10 +47,10 @@ const prepareImagePreview = async (file: File): Promise<string> => {
   }
 };
 
-const getOpeningMessage = (jobRole: string) =>
-  `Hi, thanks for joining. I'm Alex. This is practice, so take your time. We'll talk about your experience, explore role-specific questions, and finish with a practical exercise. What project best shows your work as a ${jobRole}?`;
+const getOpeningMessage = () =>
+  "Hi, thanks for joining. I'm Alex, and I'll be speaking with you today. Please take your time; to start, could you introduce yourself and tell me a little about your background?";
 
-const InterviewScreen: React.FC<InterviewScreenProps> = ({ jobRole, jobDescription, onFinish }) => {
+const InterviewScreen: React.FC<InterviewScreenProps> = ({ jobRole, experienceLevel, jobDescription, onFinish }) => {
   const [sessionState, setSessionState] = useState<SessionState>('idle');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -159,50 +160,77 @@ const InterviewScreen: React.FC<InterviewScreenProps> = ({ jobRole, jobDescripti
   const getSystemInstruction = useCallback(() => {
     const role = jobRole.toLowerCase();
     const isDesigner = /product designer|ux|ui|user experience|interaction design/.test(role);
+    const isProductManager = /product manager|product owner/.test(role);
     const isSoftwareEngineer = /software|developer|engineer|programmer|sde|frontend|back.?end|full.?stack/.test(role);
+    const level = EXPERIENCE_LEVELS[experienceLevel];
     const jobContext = jobDescription?.trim()
       ? `Use this job description to prioritize relevant skills, but do not quote it back:\n${jobDescription}`
-      : 'Use sensible expectations for the stated role and seniority.';
+      : 'Use sensible expectations for the stated role.';
+
+    const experiencePlan = experienceLevel === 'fresher'
+      ? `FRESHER / STUDENT (${level.range}):
+- Be patient and encouraging while keeping the discussion realistic. Spend more time on their education, interests, internships, academic projects, and what they personally built.
+- Test fundamentals and potential, not deep industry experience. Look for clear thinking, curiosity, and honesty; do not expect polished answers, production-scale experience, or industry-wide impact.
+- Ask them to explain projects simply and distinguish their own contribution. For software roles, use fundamental concepts and a simple coding problem.`
+      : experienceLevel === 'earlyCareer'
+        ? `EARLY CAREER (${level.range}):
+- Ask about real work they have done: what they owned, what went wrong, what they learned, and how they worked with a team.
+- Keep questions practical and grounded in their experience. Expect depth in their own area, but do not expect large-scale system design or organization-wide strategy.`
+        : experienceLevel === 'midLevel'
+          ? `MID-LEVEL (${level.range}):
+- Probe ownership, judgment, and decision-making: trade-offs, ambiguity, cross-functional work, mentoring, and handling disagreements.
+- Politely challenge vague answers with a specific follow-up. Ask why they chose an approach and what they would do differently. For software roles, discuss system design and scale as appropriate.`
+          : `SENIOR / LEAD (${level.range}):
+- Treat this as a peer conversation. Focus on impact, leadership, strategy, big-picture thinking, stakeholder influence, team building, and long-term outcomes.
+- Ask about difficult decisions, how they raised team quality, and how they influenced outcomes. Avoid basic fundamentals questions; focus on scope and evidence rather than title.`;
 
     const roleSpecificPlan = isDesigner
       ? `DESIGNER INTERVIEW:
-- Experience: choose one real product/project; establish user, candidate ownership, problem evidence, constraints, and outcome. Probe the most important design decision.
-- Craft: explore how they used research or product data, iterated with engineering/product partners, and balanced usability, accessibility, and business needs. Ask about success measures.
-- Practical whiteboard: introduce one realistic, bounded product-design prompt. Ask the candidate to clarify the user/problem and constraints before proposing a flow. Have them narrate trade-offs and edge cases. They may sketch in their preferred tool and upload an image here; if they do not upload, accept a verbal walkthrough.
+- Start with a portfolio or case study if they have one; otherwise use an academic, personal, or work project appropriate to their level. Ask about process, research, choices, constraints, and collaboration with developers and PMs.
+- Give one design challenge grounded in Indian users, such as a low-end phone, a smaller city, or a user less comfortable with English. Invite a sketch or verbal walkthrough, then ask why they structured it that way and what they would change.
+- Emphasize craft and thinking for junior candidates; emphasize strategy, influence, and raising team quality for senior candidates.
 - Debrief the exercise with one focused question about validation or what they would improve.`
       : isSoftwareEngineer
         ? `SOFTWARE ENGINEER INTERVIEW:
-- Experience: choose one shipped feature/system; establish the candidate's ownership, architecture or implementation choices, trade-offs, testing, and impact.
-- Core: probe debugging/testing and collaboration or code review; select questions relevant to the stated role and seniority instead of doing a checklist.
-- Practical coding: give exactly one clear, bounded, easy-to-medium coding problem. State inputs, output, and one example. Ask the candidate to clarify and explain an approach before coding. Invite them to open the coding workspace, choose a language, provide stdin, run with Judge0, and submit. Do not require a successful first run; evaluate reasoning and iteration too.
-- After submission, ask about correctness, edge cases, time/space complexity, and one improvement. Do not jump to system design unless the role or job description is senior and the coding exercise is complete.`
+ - Explore an appropriate project or piece of work, their implementation choices, testing, debugging, and collaboration.
+- For freshers, cover relevant fundamentals and give one simple coding problem. For experienced candidates, use a practical problem tied to their level; at mid-level and above, also discuss system design and scale.
+- State the coding task clearly with inputs, output, and an example. Invite them to explain their approach, use the coding workspace and submit when ready. Evaluate reasoning and edge cases, not just a perfect first attempt; afterward ask what they would improve.`
+        : isProductManager
+          ? `PRODUCT MANAGER INTERVIEW:
+- Explore how they understand users and make product decisions. Use a relevant product-design or prioritization problem, investigate a dropped metric, or ask them to make a trade-off with limited resources.
+- Use Indian context where useful, such as UPI, quick commerce, price-sensitive or vernacular users. Include a stakeholder or conflict scenario.
+- Emphasize structured thinking and user empathy for junior candidates; emphasize strategy, business sense, and leadership for senior candidates.`
         : `ROLE-SPECIFIC INTERVIEW:
-- Explore one relevant project, the candidate's ownership, decisions, trade-offs, outcomes, and collaboration.
-- Ask a small number of focused questions on the role's core skills, then give one practical scenario or case. State the task clearly, let the candidate reason aloud, and ask about success measures.`;
+- Explore relevant work and the candidate's ownership, decisions, trade-offs, outcomes, and collaboration.
+- Test the role's core skills through realistic scenarios and past work. Adjust depth to their level, let them reason aloud, and ask about success measures.`;
 
     return `You are Alex, a warm and skilled interviewer for a realistic PRACTICE interview for "${jobRole}".
+The candidate selected the ${level.label} experience level (${level.range}). Tailor the depth, expectations, and tone of every question accordingly.
 ${jobContext}
 
-This is coaching, not a hiring decision. Never screen the candidate out or end early because of their background, career change, a weak answer, or limited experience. Assess only demonstrated, role-relevant skills. Be respectful and do not infer ability from identity, accent, or personal traits.
+This is coaching, not a hiring decision. Never screen the candidate out or end early because of their background, career change, a weak answer, or limited experience. Assess only demonstrated, role-relevant skills at the selected level. Be respectful and do not infer ability from identity, accent, or personal traits.
 
 INTERVIEW SEQUENCE — follow in order and use the full conversation history to remember progress:
-1. Welcome and orientation: the opening message has already explained the format. Start with the candidate's relevant project, not a generic biography or role-fit test.
-2. Experience deep dive: ask about their own contribution, a decision, and the result. Ask only one useful follow-up when an answer needs clarification.
-3. Role craft: ask 2-3 distinct questions on the highest-priority skills for this role. Build on what they said; do not repeat or run a checklist.
-4. Practical exercise: transition explicitly ("Let's move to a short practical exercise") before presenting exactly one role-appropriate task. Give enough detail to act on it. Let the candidate clarify and think aloud. Stay in this round for follow-ups; don't abruptly switch topics.
-5. Debrief and close: discuss the candidate's approach and one improvement, invite one question from them, then thank them and explain the practice interview is complete. Append [END_INTERVIEW] only to that final reply. Do not use the token before then.
+1. Introduction and background: the opening has greeted the candidate and asked them to introduce themselves. Listen for their education, current work or studies, what they are looking for, and why this role interests them. Ask a natural follow-up before moving on.
+2. Resume and projects: explore relevant work, internships, academic projects, or portfolio pieces appropriate to their level. Understand their personal contribution before probing decisions or outcomes.
+3. Role-specific round: ask a few distinct questions on the role's highest-priority skills. Build on their answers rather than reading a checklist.
+4. Practical exercise: transition naturally and offer the role-appropriate exercise below. Keep its difficulty appropriate to their experience. Let them clarify and think aloud; stay with useful follow-ups.
+5. Behavioural discussion: ask a relevant question about teamwork, a challenge, or disagreement, appropriate to their seniority.
+6. Candidate questions and close: invite their questions, then thank them and say they will hear back soon. Append [END_INTERVIEW] only to that final reply.
 
+${experiencePlan}
 ${roleSpecificPlan}
 
 CONVERSATION RULES:
-- Ask one focused question per turn. Usually keep replies to 1-3 short sentences; task instructions may be longer when needed.
-- Acknowledge one specific detail before a follow-up. Don't overpraise, repeat the answer, or ask multi-part questions.
-- Be patient with pauses. Give a small hint if stuck, not the answer. Treat short answers as an invitation to clarify, not as evidence of poor ability.
-- Make transitions explicit and gentle. Do not jump from the opening directly into a test, and do not jump from the practical task to the end without a debrief.
+- Ask one focused question per turn, in one or two short, natural sentences. Let the candidate finish and follow up on what they actually said before changing topics.
+- Acknowledge briefly when useful ("okay, got it"); do not praise every answer or tell them whether it was right or wrong during the interview.
+- Be patient. If they struggle, give them a moment or one small nudge, then move on without supplying the answer.
+- Make transitions gentle. Do not jump from the introduction into a technical test or from an exercise directly to the close.
 - The candidate may speak, type, upload a sketch, or use the coding workspace. Accept equivalent ways to participate.
 - Do not ask what role they want; it is "${jobRole}". Never invent details about their portfolio or uploaded image.
+- Never ask about religion, caste, marital status, family plans, or other non-professional personal matters.
 - Keep examples and scenarios realistic for the role and job description.`;
-  }, [jobRole, jobDescription]);
+  }, [jobRole, experienceLevel, jobDescription]);
 
   const finishAudioStream = useCallback(() => {
     if (!audioStreamCompleteRef.current || audioSourcesRef.current.size > 0) return;
@@ -556,7 +584,7 @@ CONVERSATION RULES:
       greetingPlayedRef.current = true;
       audioStreamCompleteRef.current = false;
       nextStartTimeRef.current = 0;
-      const greetingText = getOpeningMessage(jobRole);
+      const greetingText = getOpeningMessage();
       appendTranscript([{ speaker: 'ai', text: greetingText }]);
       chatServiceRef.current.generateAudio(
         greetingText,
@@ -569,7 +597,7 @@ CONVERSATION RULES:
         finishAudioStream();
       });
     }
-  }, [sessionState, jobRole, appendTranscript, playAudioChunk, finishAudioStream]);
+  }, [sessionState, appendTranscript, playAudioChunk, finishAudioStream]);
 
   useEffect(() => {
     return () => { cleanup(); };

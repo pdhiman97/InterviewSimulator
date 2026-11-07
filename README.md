@@ -26,7 +26,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1dnTKfW63aohoJBYFJYziiz
 Gemini handles interview chat, report generation, speech-to-text, and generated speech. The Gemini API key stays in the Supabase Edge Function secret; no ElevenLabs key is required.
 Chat and report generation use Gemini Flash-Lite models first, with a Flash fallback. Speech streams audio using Gemini 3.8 Flash-Lite TTS first, with Gemini 3.1 Flash TTS as a fallback.
 
-Interviews follow a consistent arc: project experience, role-specific questions, a practical exercise, a debrief, and candidate questions. Product/UX design interviews include a whiteboard-style exercise with optional sketch upload. Software engineering interviews include a coding exercise with a Judge0 workspace for running code with custom standard input.
+Choose an experience level on the setup screen (Fresher/Student, Early Career, Mid-level, or Senior/Lead). Interviews adapt their question depth, practical exercises, and feedback to that level, while following a consistent arc from introductions and background through projects, role-specific questions, behavioural discussion, and candidate questions. Product/UX design interviews include a whiteboard-style exercise with optional sketch upload. Software engineering interviews include a level-appropriate coding exercise with a Judge0 workspace for running code with custom standard input.
 
 The Pages workflow is configured with the Supabase project URL and publishable key. The Gemini API key belongs only in Supabase Edge Function secrets.
 The Gemini proxy is public because the app has no user sign-in; its CORS origin list is not authentication or rate limiting. Add authentication and usage limits before relying on it for a public launch.
